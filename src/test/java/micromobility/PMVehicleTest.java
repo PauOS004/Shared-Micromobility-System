@@ -4,7 +4,7 @@ import data.GeographicPoint;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 class PMVehicleTest {
 
@@ -34,20 +34,27 @@ class PMVehicleTest {
 
     @Test
     void setNotAvailb() {
-        vehicle.setNotAvailb();
+        vehicle.changeState(PMVState.NotAvailable);
         assertEquals(PMVState.NotAvailable, vehicle.getState(), "The state should be 'NotAvailable' after calling setNotAvailb().");
     }
 
     @Test
     void setUnderWay() {
-        vehicle.setUnderWay();
+        vehicle.changeState(PMVState.UnderWay);
         assertEquals(PMVState.UnderWay, vehicle.getState(), "The state should be 'UnderWay' after calling setUnderWay().");
     }
 
     @Test
     void setAvailb() {
-        vehicle.setAvailb();
+        vehicle.changeState(PMVState.Available);
         assertEquals(PMVState.Available, vehicle.getState(), "The state should be 'Available' after calling setAvailb().");
+    }
+
+    @Test
+    void changeState_ShouldAllowValidTransitions() {
+        PMVehicle vehicle = new PMVehicle("VEH123", PMVState.Available, new GeographicPoint(41.40338F, 2.17403F));
+        vehicle.changeState(PMVState.NotAvailable);
+        assertEquals(PMVState.NotAvailable, vehicle.getState());
     }
 
     @Test
@@ -59,7 +66,7 @@ class PMVehicleTest {
 
     @Test
     void testToString() {
-        GeographicPoint initialLocation = new GeographicPoint(41.40338F, 2.17403F);
+        GeographicPoint initialLocation = new GeographicPoint(41.40338F, 2.17403F); //
         PMVehicle vehicle = new PMVehicle("V123", PMVState.Available, initialLocation);
 
         String expectedString = "PMVehicle{vehicleID='V123', state=Available, location=" + initialLocation + "}";

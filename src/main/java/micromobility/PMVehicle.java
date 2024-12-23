@@ -25,16 +25,28 @@ public class PMVehicle {
         return location;
     }
 
-    public void setNotAvailb() {
-        this.state = PMVState.NotAvailable;
+    public void changeState(PMVState newState) {
+        // Permitir transiciones idénticas
+        if (this.state == newState) {
+            return;
+        }
+
+        // Validar transiciones permitidas
+        if (isValidStateTransition(this.state, newState)) {
+            this.state = newState;
+        } else {
+            throw new IllegalStateException("Transition from " + this.state + " to " + newState + " is not allowed.");
+        }
     }
 
-    public void setUnderWay() {
-        this.state = PMVState.UnderWay;
-    }
-
-    public void setAvailb() {
-        this.state = PMVState.Available;
+    // Validar transiciones válidas
+    private boolean isValidStateTransition(PMVState current, PMVState target) {
+        return switch (current) {
+            case Available -> target == PMVState.NotAvailable | target == PMVState.UnderWay;
+            case NotAvailable -> target == PMVState.UnderWay || target == PMVState.Available;
+            case UnderWay -> target == PMVState.Available || target == PMVState.NotAvailable;
+            case TemporaryParking -> target == PMVState.UnderWay || target == PMVState.Available;
+        };
     }
 
     public void setLocation(GeographicPoint gP) {
