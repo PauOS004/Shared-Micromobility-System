@@ -1,4 +1,4 @@
-package services.smartfeatures;
+package services;
 
 import data.GeographicPoint;
 import data.StationID;
