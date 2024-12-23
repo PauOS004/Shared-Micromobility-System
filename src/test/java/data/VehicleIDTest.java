@@ -1,5 +1,6 @@
 package data;
 
+import exceptions.InvalidVehicleIDException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,25 +15,25 @@ class VehicleIDTest {
 
     @Test
     void testInvalidVehicleID_NullID() {
-        assertThrows(IllegalArgumentException.class, () -> new VehicleID(null),
+        assertThrows(InvalidVehicleIDException.class, () -> new VehicleID(null),
                 "Expected exception for null VehicleID");
     }
 
     @Test
     void testInvalidVehicleID_EmptyID() {
-        assertThrows(IllegalArgumentException.class, () -> new VehicleID(""),
+        assertThrows(InvalidVehicleIDException.class, () -> new VehicleID(""),
                 "Expected exception for empty VehicleID");
     }
 
     @Test
     void testInvalidVehicleID_InvalidFormat() {
-        assertThrows(IllegalArgumentException.class, () -> new VehicleID("123"),
+        assertThrows(InvalidVehicleIDException.class, () -> new VehicleID("123"),
                 "Expected exception for VehicleID shorter than 5 characters");
 
-        assertThrows(IllegalArgumentException.class, () -> new VehicleID("INVALID_ID_TOO_LONG123"),
+        assertThrows(InvalidVehicleIDException.class, () -> new VehicleID("INVALID_ID_TOO_LONG123"),
                 "Expected exception for VehicleID longer than 15 characters");
 
-        assertThrows(IllegalArgumentException.class, () -> new VehicleID("ID@123"),
+        assertThrows(InvalidVehicleIDException.class, () -> new VehicleID("ID@123"),
                 "Expected exception for VehicleID with invalid characters");
     }
 

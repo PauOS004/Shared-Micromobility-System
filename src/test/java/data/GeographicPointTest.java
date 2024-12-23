@@ -1,5 +1,6 @@
 package data;
 
+import exceptions.InvalidGeoCoordinatesException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -15,12 +16,12 @@ class GeographicPointTest {
 
     @Test
     void testInvalidLatitude() {
-        assertThrows(IllegalArgumentException.class, () -> new GeographicPoint(100.0f, -93.0f));
+        assertThrows(InvalidGeoCoordinatesException.class, () -> new GeographicPoint(100.0f, -93.0f));
     }
 
     @Test
     void testInvalidLongitude() {
-        assertThrows(IllegalArgumentException.class, () -> new GeographicPoint(45.0f, -200.0f));
+        assertThrows(InvalidGeoCoordinatesException.class, () -> new GeographicPoint(45.0f, -200.0f));
     }
 
     @Test

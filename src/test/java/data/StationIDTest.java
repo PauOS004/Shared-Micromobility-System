@@ -1,5 +1,6 @@
 package data;
 
+import exceptions.InvalidStationIDException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,8 +15,8 @@ class StationIDTest {
 
     @Test
     void testInvalidStationID() {
-        assertThrows(IllegalArgumentException.class, () -> new StationID(""));
-        assertThrows(IllegalArgumentException.class, () -> new StationID("AB!"));
+        assertThrows(InvalidStationIDException.class, () -> new StationID(""));
+        assertThrows(InvalidStationIDException.class, () -> new StationID("AB!"));
     }
 
     @Test

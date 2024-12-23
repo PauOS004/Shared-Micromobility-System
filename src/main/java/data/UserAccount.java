@@ -1,11 +1,13 @@
 package data;
 
+import exceptions.InvalidUserAccountException;
+
 final public class UserAccount {
     private final String username;
 
     public UserAccount(String username) {
         if (username == null || username.isEmpty() || !username.matches("[a-zA-Z0-9._-]{3,20}")) {
-            throw new IllegalArgumentException("Invalid UserAccount format");
+            throw new InvalidUserAccountException();
         }
         this.username = username;
     }

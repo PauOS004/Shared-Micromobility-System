@@ -1,12 +1,14 @@
 package data;
 
+import exceptions.InvalidGeoCoordinatesException;
+
 final public class GeographicPoint {
     private final float latitude;
     private final float longitude;
 
     public GeographicPoint(float lat, float lon) {
         if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-            throw new IllegalArgumentException("Invalid geographic coordinates");
+            throw new InvalidGeoCoordinatesException();
         }
         this.latitude = lat;
         this.longitude = lon;

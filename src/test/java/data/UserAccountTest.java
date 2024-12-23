@@ -1,5 +1,6 @@
 package data;
 
+import exceptions.InvalidUserAccountException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,22 +15,22 @@ class UserAccountTest {
 
     @Test
     void testInvalidUserAccount_NullUsername() {
-        assertThrows(IllegalArgumentException.class, () -> new UserAccount(null),
+        assertThrows(InvalidUserAccountException.class, () -> new UserAccount(null),
                 "Expected exception for null username");
     }
 
     @Test
     void testInvalidUserAccount_EmptyUsername() {
-        assertThrows(IllegalArgumentException.class, () -> new UserAccount(""),
+        assertThrows(InvalidUserAccountException.class, () -> new UserAccount(""),
                 "Expected exception for empty username");
     }
 
     @Test
     void testInvalidUserAccount_InvalidFormat() {
-        assertThrows(IllegalArgumentException.class, () -> new UserAccount("us"),
+        assertThrows(InvalidUserAccountException.class, () -> new UserAccount("us"),
                 "Expected exception for username shorter than 3 characters");
 
-        assertThrows(IllegalArgumentException.class, () -> new UserAccount("user_with_invalid_format@"),
+        assertThrows(InvalidUserAccountException.class, () -> new UserAccount("user_with_invalid_format@"),
                 "Expected exception for username with invalid characters");
     }
 

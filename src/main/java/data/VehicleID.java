@@ -1,11 +1,13 @@
 package data;
 
+import exceptions.InvalidVehicleIDException;
+
 final public class VehicleID {
     private final String id;
 
     public VehicleID(String id) {
         if (id == null || id.isEmpty() || !id.matches("[A-Z0-9]{5,15}")) {
-            throw new IllegalArgumentException("Invalid VehicleID format");
+            throw new InvalidVehicleIDException();
         }
         this.id = id;
     }

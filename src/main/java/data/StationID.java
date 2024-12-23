@@ -1,11 +1,13 @@
 package data;
 
+import exceptions.InvalidStationIDException;
+
 final public class StationID {
     private final String id;
 
     public StationID(String id) {
         if (id == null || id.isEmpty() || !id.matches("[A-Z0-9]{3,10}")) {
-            throw new IllegalArgumentException("Invalid StationID format");
+            throw new InvalidStationIDException();
         }
         this.id = id;
     }
