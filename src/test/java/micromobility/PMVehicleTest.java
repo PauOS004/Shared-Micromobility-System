@@ -1,4 +1,4 @@
-package micromobility.payment;
+package micromobility;
 
 import data.GeographicPoint;
 import org.junit.jupiter.api.BeforeEach;

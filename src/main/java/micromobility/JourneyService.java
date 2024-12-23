@@ -1,4 +1,4 @@
-package micromobility.payment;
+package micromobility;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
