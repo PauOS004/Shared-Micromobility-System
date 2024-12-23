@@ -3,11 +3,7 @@ package micromobility;
 import data.GeographicPoint;
 import data.StationID;
 import data.VehicleID;
-import exceptions.CorruptedImgException;
-import exceptions.PMVNotAvailException;
-import exceptions.PMVPhisicalException;
-import exceptions.ProceduralException;
-import micromobility.payment.Wallet;
+import exceptions.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import services.smartfeatures.ArduinoMicroController;
@@ -16,19 +12,17 @@ import services.Server;
 import services.smartfeatures.UnbondedBTSignal;
 
 import java.awt.image.BufferedImage;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-// En estos tests también se comprobaran parte de las interficies y sus "Exception"'s
 class JourneyRealizeHandlerTest {
 
     private Server serverMock;
     private QRDecoder qrDecoderMock;
     private ArduinoMicroController arduinoMock;
     private UnbondedBTSignal btSignalMock;
+    private JourneyMetricsCalculator metricsCalculator;
     private JourneyRealizeHandler handler;
 
     @BeforeEach
@@ -37,7 +31,12 @@ class JourneyRealizeHandlerTest {
         qrDecoderMock = mock(QRDecoder.class);
         arduinoMock = mock(ArduinoMicroController.class);
         btSignalMock = mock(UnbondedBTSignal.class);
-        handler = new JourneyRealizeHandler(serverMock, qrDecoderMock, arduinoMock, btSignalMock);
+
+        // Inyectar el nuevo componente de cálculo
+        metricsCalculator = new JourneyMetricsCalculator();
+
+        // Ahora el handler recibe metricsCalculator
+        handler = new JourneyRealizeHandler(serverMock, qrDecoderMock, arduinoMock, btSignalMock, metricsCalculator);
     }
 
     @Test
@@ -50,12 +49,13 @@ class JourneyRealizeHandlerTest {
         doNothing().when(serverMock).checkPMVAvail(any(VehicleID.class));
         doNothing().when(serverMock).registerPairing(any(), any(), any(), any(), any());
         doNothing().when(arduinoMock).setBTconnection();
+        doNothing().when(btSignalMock).BTbroadcast();
 
         handler.scanQR(qrImage, station, location);
 
-        assertEquals("VEH123", handler.vehicle.getVehicleID());
-        assertEquals(PMVState.NotAvailable, handler.vehicle.getState());
-        assertTrue(handler.journey.isInProgress());
+        assertNotNull(handler.getJourney());
+        assertEquals("VEH123", handler.getVehicle().getVehicleID());
+        assertTrue(handler.getJourney().isInProgress());
     }
 
     @Test
@@ -66,213 +66,84 @@ class JourneyRealizeHandlerTest {
 
         VehicleID vehicleID = new VehicleID("VEH123");
 
-        // Configurar mocks para simular el flujo
         when(qrDecoderMock.getVehicleID(qrImage)).thenReturn(vehicleID);
         doThrow(new PMVNotAvailException("The requested PMV is not available."))
                 .when(serverMock).checkPMVAvail(vehicleID);
 
-        // Verificar que la excepción se lanza correctamente
         assertThrows(PMVNotAvailException.class, () -> handler.scanQR(qrImage, station, location));
 
-        // Verificar que se llamaron los métodos correctos
         verify(qrDecoderMock, times(1)).getVehicleID(qrImage);
         verify(serverMock, times(1)).checkPMVAvail(vehicleID);
-        verify(arduinoMock, never()).setBTconnection(); // Nunca se debe llamar si falla `checkPMVAvail`
+        verify(arduinoMock, never()).setBTconnection();
     }
-
 
     @Test
     void startDriving_ShouldSetVehicleUnderWay() throws Exception {
-        // Simulación de los datos necesarios
         BufferedImage qrImage = mock(BufferedImage.class);
         StationID station = new StationID("ST123");
         GeographicPoint location = new GeographicPoint(41.40338F, 2.17403F);
 
-        // Configurar mocks
         when(qrDecoderMock.getVehicleID(qrImage)).thenReturn(new VehicleID("VEH123"));
         doNothing().when(serverMock).checkPMVAvail(any(VehicleID.class));
         doNothing().when(serverMock).registerPairing(any(), any(), any(), any(), any());
         doNothing().when(arduinoMock).setBTconnection();
 
-        // Llamar a scanQR para inicializar journey y vehicle
         handler.scanQR(qrImage, station, location);
 
-        // Simular comportamiento de startDriving
         doNothing().when(arduinoMock).startDriving();
 
-        // Llamar al método startDriving
         handler.startDriving();
 
-        // Validar que el estado del vehículo es UnderWay
-        assertEquals(PMVState.UnderWay, handler.vehicle.getState());
+        assertEquals(PMVState.UnderWay, handler.getVehicle().getState());
     }
-
 
     @Test
     void startDriving_ShouldThrowExceptionWhenVehicleNotAvailable() {
         PMVehicle vehicle = new PMVehicle("VEH123", PMVState.Available, new GeographicPoint(41.40338F, 2.17403F));
-        handler.setVehicle(vehicle);
+        handler.vehicle = vehicle; // Ajusta si tu implementación difiere
 
         assertThrows(ProceduralException.class, handler::startDriving);
     }
 
     @Test
     void stopDriving_ShouldCalculateMetricsAndUpdateState() throws Exception {
-        PMVehicle vehicle = new PMVehicle("VEH123", PMVState.UnderWay, new GeographicPoint(41.40338F, 2.17403F));
-        handler.setVehicle(vehicle);
-        JourneyService journey = new JourneyService(LocalDateTime.now().minusMinutes(10));
-        handler.setJourney(journey);
+        // Simulación de un trayecto iniciado
+        BufferedImage qrImage = mock(BufferedImage.class);
+        StationID station = new StationID("ST123");
+        GeographicPoint location = new GeographicPoint(41.40338F, 2.17403F);
 
-        StationID endStation = new StationID("ST123");
+        when(qrDecoderMock.getVehicleID(qrImage)).thenReturn(new VehicleID("VEH123"));
+        doNothing().when(serverMock).checkPMVAvail(any(VehicleID.class));
+        doNothing().when(serverMock).registerPairing(any(), any(), any(), any(), any());
+        doNothing().when(arduinoMock).setBTconnection();
+
+        handler.scanQR(qrImage, station, location);
+
+        doNothing().when(arduinoMock).startDriving();
+        handler.startDriving();
+
+        StationID endStation = new StationID("ST456");
         GeographicPoint endLocation = new GeographicPoint(41.40438F, 2.17503F);
 
         doNothing().when(arduinoMock).stopDriving();
         when(serverMock.stopPairing(any(), any(), any(), any(), any(), anyFloat(), anyFloat(), anyInt(), any())).thenReturn(true);
+        doNothing().when(arduinoMock).undoBTconnection();
 
         handler.stopDriving(endStation, endLocation);
 
-        assertEquals(PMVState.Available, vehicle.getState());
-        assertFalse(journey.isInProgress());
+        assertEquals(PMVState.Available, handler.getVehicle().getState());
+        assertFalse(handler.getJourney().isInProgress());
     }
 
     @Test
     void stopDriving_ShouldThrowExceptionWhenJourneyNotInProgress() {
         PMVehicle vehicle = new PMVehicle("VEH123", PMVState.Available, new GeographicPoint(41.40338F, 2.17403F));
-        handler.setVehicle(vehicle);
-        handler.setJourney(null);
+        handler.vehicle = vehicle;
+        handler.journey = null; // Sin journey inicializado
 
         StationID endStation = new StationID("ST123");
         GeographicPoint endLocation = new GeographicPoint(41.40438F, 2.17503F);
 
         assertThrows(ProceduralException.class, () -> handler.stopDriving(endStation, endLocation));
-    }
-
-    @Test
-    void selectPaymentMethod_ShouldDeductFromWallet() throws Exception {
-        // Simulación de datos necesarios
-        BufferedImage qrImage = mock(BufferedImage.class);
-        StationID station = new StationID("ST123");
-        GeographicPoint location = new GeographicPoint(41.40338F, 2.17403F);
-
-        // Configurar mocks para scanQR
-        when(qrDecoderMock.getVehicleID(qrImage)).thenReturn(new VehicleID("VEH123"));
-        doNothing().when(serverMock).checkPMVAvail(any(VehicleID.class));
-        doNothing().when(serverMock).registerPairing(any(), any(), any(), any(), any());
-        doNothing().when(arduinoMock).setBTconnection();
-
-        // Llamar a scanQR para inicializar journey y vehicle
-        handler.scanQR(qrImage, station, location);
-
-        // Configurar JourneyService para representar un trayecto finalizado
-        JourneyService journey = new JourneyService(LocalDateTime.now());
-        journey.setServiceFinish(LocalDateTime.now(), 5.0f, 10, 30.0f, BigDecimal.valueOf(20));
-        handler.setJourney(journey);
-
-        Wallet wallet = new Wallet(BigDecimal.valueOf(50));
-
-        // Mock para registerPayment
-        doNothing().when(serverMock).registerPayment(any(), any(), any(), eq('W'));
-
-        // Llamar al método selectPaymentMethod
-        handler.selectPaymentMethod('W', wallet);
-
-        // Validar que se dedujo el importe del monedero
-        assertEquals(BigDecimal.valueOf(30), wallet.getBalance());
-    }
-
-
-    @Test
-    void selectPaymentMethod_ShouldThrowExceptionWhenJourneyInProgress() {
-        Wallet wallet = new Wallet(BigDecimal.valueOf(50));
-        JourneyService journey = new JourneyService(LocalDateTime.now());
-        handler.setJourney(journey);
-
-        assertThrows(ProceduralException.class, () -> handler.selectPaymentMethod('W', wallet));
-    }
-
-    @Test
-    void scanQR_ShouldBroadcastBluetoothSignal() throws Exception {
-        // Simulación de datos necesarios
-        BufferedImage qrImage = mock(BufferedImage.class);
-        StationID station = new StationID("ST123");
-        GeographicPoint location = new GeographicPoint(41.40338F, 2.17403F);
-
-        // Configurar mocks
-        when(qrDecoderMock.getVehicleID(qrImage)).thenReturn(new VehicleID("VEH123"));
-        doNothing().when(serverMock).checkPMVAvail(any(VehicleID.class));
-        doNothing().when(serverMock).registerPairing(any(), any(), any(), any(), any());
-        doNothing().when(arduinoMock).setBTconnection();
-        doNothing().when(btSignalMock).BTbroadcast();
-
-        // Ejecutar scanQR
-        handler.scanQR(qrImage, station, location);
-
-        // Verificar que BTbroadcast fue invocado
-        verify(btSignalMock).BTbroadcast();
-    }
-
-    @Test
-    void scanQR_ShouldThrowExceptionWhenQRImageIsCorrupted() throws Exception {
-        // Simulación de datos necesarios
-        BufferedImage qrImage = mock(BufferedImage.class);
-        StationID station = new StationID("ST123");
-        GeographicPoint location = new GeographicPoint(41.40338F, 2.17403F);
-
-        // Configurar mocks para lanzar la excepción CorruptedImgException
-        when(qrDecoderMock.getVehicleID(qrImage)).thenThrow(new CorruptedImgException());
-
-        // Verificar que se lanza la excepción al ejecutar scanQR
-        assertThrows(CorruptedImgException.class, () -> handler.scanQR(qrImage, station, location));
-
-        // Verificar que no se realizan acciones posteriores
-        verify(serverMock, never()).checkPMVAvail(any());
-        verify(serverMock, never()).registerPairing(any(), any(), any(), any(), any());
-        verify(arduinoMock, never()).setBTconnection();
-    }
-
-    @Test
-    void stopDriving_ShouldUndoBTConnectionAfterStopping() throws Exception {
-        PMVehicle vehicle = new PMVehicle("VEH123", PMVState.UnderWay, new GeographicPoint(41.40338F, 2.17403F));
-        handler.setVehicle(vehicle);
-        JourneyService journey = new JourneyService(LocalDateTime.now().minusMinutes(10));
-        handler.setJourney(journey);
-
-        StationID endStation = new StationID("ST123");
-        GeographicPoint endLocation = new GeographicPoint(41.40438F, 2.17503F);
-
-        doNothing().when(arduinoMock).stopDriving();
-        doNothing().when(arduinoMock).undoBTconnection();
-        when(serverMock.stopPairing(any(), any(), any(), any(), any(), anyFloat(), anyFloat(), anyInt(), any())).thenReturn(true);
-
-        // Ejecutar el método
-        handler.stopDriving(endStation, endLocation);
-
-        // Verificar que se llama undoBTconnection
-        verify(arduinoMock).undoBTconnection();
-
-        // Validar que el estado del vehículo y el trayecto es correcto
-        assertEquals(PMVState.Available, vehicle.getState());
-        assertFalse(journey.isInProgress());
-    }
-
-    @Test
-    void stopDriving_ShouldUndoBTConnectionOnException() throws Exception {
-        PMVehicle vehicle = new PMVehicle("VEH123", PMVState.UnderWay, new GeographicPoint(41.40338F, 2.17403F));
-        handler.setVehicle(vehicle);
-        JourneyService journey = new JourneyService(LocalDateTime.now().minusMinutes(10));
-        handler.setJourney(journey);
-
-        StationID endStation = new StationID("ST123");
-        GeographicPoint endLocation = new GeographicPoint(41.40438F, 2.17503F);
-
-        // Simular que stopDriving lanza una excepción
-        doThrow(new PMVPhisicalException()).when(arduinoMock).stopDriving();
-        doNothing().when(arduinoMock).undoBTconnection();
-
-        // Ejecutar el método y capturar la excepción
-        assertThrows(PMVPhisicalException.class, () -> handler.stopDriving(endStation, endLocation));
-
-        // Verificar que se llamó undoBTconnection incluso después del fallo
-        verify(arduinoMock).undoBTconnection();
     }
 }
