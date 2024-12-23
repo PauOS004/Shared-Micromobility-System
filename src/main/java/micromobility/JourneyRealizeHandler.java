@@ -23,9 +23,9 @@ public class JourneyRealizeHandler {
     private final JourneyMetricsCalculator metricsCalculator;
 
     // El JourneyService asociado al viaje actual
-    JourneyService journey;
+    public JourneyService journey;
     // El vehículo actualmente en uso
-    PMVehicle vehicle;
+    public PMVehicle vehicle;
     // El usuario actual
     UserAccount userAccount;
 
