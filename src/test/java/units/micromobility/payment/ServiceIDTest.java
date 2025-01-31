@@ -1,6 +1,5 @@
 package units.micromobility.payment;
 
-import micromobility.payment.ServiceID;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
