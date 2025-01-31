@@ -1,9 +1,7 @@
 package services.smartfeatures;
 
+import exceptions.ConnectException;
 import exceptions.PMVPhisicalException;
-
-import java.net.ConnectException;
-
 /**
  * Interfaz para manejar interacciones con el controlador Arduino de los vehículos.
  */
@@ -20,14 +18,14 @@ public interface ArduinoMicroController {
      * @throws PMVPhisicalException Si ocurre un fallo físico en el vehículo.
      * @throws ConnectException Si ocurre un error de conexión.
      */
-    void startDriving() throws PMVPhisicalException, ConnectException;
+    void startDriving() throws PMVPhisicalException, java.net.ConnectException;
 
     /**
      * Detiene la conducción del vehículo.
      * @throws PMVPhisicalException Si ocurre un fallo físico en el vehículo.
      * @throws ConnectException Si ocurre un error de conexión.
      */
-    void stopDriving() throws PMVPhisicalException, ConnectException;
+    void stopDriving() throws PMVPhisicalException, java.net.ConnectException;
 
     /**
      * Deshace la conexión Bluetooth.
