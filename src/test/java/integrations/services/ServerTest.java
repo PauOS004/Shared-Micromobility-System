@@ -4,7 +4,6 @@ import data.GeographicPoint;
 import data.StationID;
 import data.UserAccount;
 import data.VehicleID;
-import micromobility.payment.ServiceID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import services.Server;
