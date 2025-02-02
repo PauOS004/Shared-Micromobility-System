@@ -1,12 +1,13 @@
 package micromobility.payment;
 
 import data.UserAccount;
+import exceptions.NotEnoughWalletException;
 import micromobility.JourneyService;
 import java.math.BigDecimal;
 
 /**
  * Clase abstracta que representa un pago.
- * Las subclases deben implementar el método {@link #processPayment()}.
+ * Las subclases deben implementar el método {@link #executePayment()}.
  */
 public abstract class Payment {
     private final UserAccount user;
@@ -30,14 +31,26 @@ public abstract class Payment {
         this.amount = amount;
     }
 
+    /**
+     * Obtiene el usuario que realiza el pago.
+     * @return El usuario asociado al pago.
+     */
     public UserAccount getUser() {
         return user;
     }
 
+    /**
+     * Obtiene el servicio de trayecto asociado al pago.
+     * @return El servicio de trayecto.
+     */
     public JourneyService getJourney() {
         return journey;
     }
 
+    /**
+     * Obtiene el monto del pago.
+     * @return El monto del pago.
+     */
     public BigDecimal getAmount() {
         return amount;
     }
@@ -45,8 +58,12 @@ public abstract class Payment {
     /**
      * Método abstracto para procesar el pago. Las subclases deben implementarlo.
      */
-    public abstract void processPayment();
+    public abstract void executePayment() throws NotEnoughWalletException;
 
+    /**
+     * Representación en cadena del pago.
+     * @return Cadena con la información del pago.
+     */
     @Override
     public String toString() {
         return "Payment{" +
