@@ -2,6 +2,7 @@ package services.smartfeatures;
 
 import exceptions.ConnectException;
 import exceptions.PMVPhisicalException;
+import exceptions.ProceduralException;
 /**
  * Interfaz para manejar interacciones con el controlador Arduino de los vehículos.
  */

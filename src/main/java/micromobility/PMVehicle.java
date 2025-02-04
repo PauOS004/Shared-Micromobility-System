@@ -2,14 +2,8 @@ package micromobility;
 
 import data.GeographicPoint;
 import data.VehicleID;
-<<<<<<< HEAD
 import java.awt.image.BufferedImage;
 
-=======
-
-import java.awt.image.BufferedImage;
-
->>>>>>> origin/micromobilityV2
 /**
  * Represents a personal mobility vehicle (PMV) with attributes for identification, state, and location.
  */

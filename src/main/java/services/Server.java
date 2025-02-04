@@ -52,8 +52,8 @@ public interface Server {
      * @throws PairingNotFoundException Si el emparejamiento no se encuentra.
      */
     void stopPairing(UserAccount user, VehicleID vehicle, StationID station,
-                     GeographicPoint location, LocalDateTime date, float avgSpeed,
-                     float distance, int duration, BigDecimal importValue)
+                        GeographicPoint location, LocalDateTime date, float avgSpeed,
+                        float distance, int duration, BigDecimal importValue)
             throws InvalidPairingArgsException, exceptions.ConnectException, PairingNotFoundException;
 
     /**

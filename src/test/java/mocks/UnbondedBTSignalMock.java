@@ -1,6 +1,6 @@
 package mocks;
 
-import data.StationID;
+import data.*;
 import exceptions.ConnectException;
 import micromobility.JourneyRealizeHandler;
 import services.smartfeatures.UnbondedBTSignal;
