@@ -1,6 +1,10 @@
 package micromobility;
 
 import data.UserAccount;
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/micromobilityV2
 import java.util.List;
 
 /**

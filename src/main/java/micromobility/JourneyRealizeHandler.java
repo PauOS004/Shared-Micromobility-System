@@ -1,10 +1,20 @@
 package micromobility;
 
 import data.*;
+<<<<<<< HEAD
 import micromobility.payment.*;
 import exceptions.*;
 import services.smartfeatures.*;
 import services.*;
+=======
+import exceptions.*;
+import micromobility.payment.Payment;
+import micromobility.payment.Wallet;
+import micromobility.payment.WalletPayment;
+import services.Server;
+import services.smartfeatures.ArduinoMicroController;
+import services.smartfeatures.QRDecoder;
+>>>>>>> origin/micromobilityV2
 
 import java.awt.image.BufferedImage;
 import java.math.BigDecimal;
