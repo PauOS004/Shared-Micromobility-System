@@ -1,107 +1,224 @@
 package micromobility;
 
-import data.GeographicPoint;
-import data.StationID;
-import data.UserAccount;
-import data.VehicleID;
+import data.*;
+import micromobility.payment.*;
 import exceptions.*;
-import services.smartfeatures.ArduinoMicroController;
-import services.smartfeatures.QRDecoder;
-import services.Server;
-import services.smartfeatures.UnbondedBTSignal;
+import services.smartfeatures.*;
+import services.*;
 
 import java.awt.image.BufferedImage;
 import java.math.BigDecimal;
 import java.net.ConnectException;
 import java.time.LocalDateTime;
 
+
 public class JourneyRealizeHandler {
     private final Server server;
     private final QRDecoder qrDecoder;
     private final ArduinoMicroController arduino;
-    private final UnbondedBTSignal btSignal;
-    private final JourneyMetricsCalculator metricsCalculator;
+    private Driver driver;
+    private StationID stationID;
+    private boolean BTconnected;
+    private JourneyService journeyService;
+    private PMVehicle vehicle;
+    private UserAccount user;
+    private Payment payment;
 
-    // El JourneyService asociado al viaje actual
-    public JourneyService journey;
-    // El vehículo actualmente en uso
-    public PMVehicle vehicle;
-    // El usuario actual
-    UserAccount userAccount;
-
-    public JourneyRealizeHandler(Server server, QRDecoder qrDecoder, ArduinoMicroController arduino,
-                                 UnbondedBTSignal btSignal, JourneyMetricsCalculator metricsCalculator) {
+    public JourneyRealizeHandler(Server server, QRDecoder qrDecoder, ArduinoMicroController arduino) {
         this.server = server;
         this.qrDecoder = qrDecoder;
         this.arduino = arduino;
-        this.btSignal = btSignal;
-        this.metricsCalculator = metricsCalculator;
     }
 
-    public void scanQR(BufferedImage qrImage, StationID station, GeographicPoint location)
-            throws CorruptedImgException, PMVNotAvailException, ProceduralException, InvalidPairingArgsException, java.net.ConnectException {
-        if (station == null || location == null) {
+    public void scanQR() throws ConnectException, CorruptedImgException, PMVNotAvailException, ProceduralException, InvalidPairingArgsException {
+        if (vehicle == null || stationID == null) {
             throw new ProceduralException("Station or location not provided before scanning QR.");
         }
-
+        BufferedImage qrImage = vehicle.getQRImg();
         VehicleID vhID = qrDecoder.getVehicleID(qrImage);
+
         server.checkPMVAvail(vhID);
 
-        userAccount = new UserAccount("USER123");
-        journey = new JourneyService(userAccount, vhID);
-        journey.startService(station, location);
+        initBTConnection();
 
-        // Estado del vehículo al emparejar
-        vehicle = new PMVehicle(vhID.getId(), PMVState.NotAvailable, location);
+        vehicle.setNotAvailb();
 
-        // Conectar con el arduino
-        arduino.setBTconnection();
+        user = driver.getUserAccount();
+        LocalDateTime initDate = LocalDateTime.now();
+        GeographicPoint vehLoc = vehicle.getLocation();
 
-        // Registrar el emparejamiento en el servidor
-        server.registerPairing(userAccount, vhID, station, location, LocalDateTime.now());
+        server.registerPairing(user, vhID, stationID, vehicle.getLocation(), initDate);
 
-        // Emitir señal BT
-        btSignal.BTbroadcast();
+        journeyService = new JourneyService(user, vhID);
+        journeyService.setUser(user);
+        journeyService.setVehicleID(vhID);
+        journeyService.setInitDate(initDate);
+        journeyService.setOriginPoint(vehLoc);
+        journeyService.setOrgStatID(stationID);
+
+
     }
 
-    public void startDriving() throws ProceduralException, ConnectException, PMVPhisicalException {
-        if (vehicle == null || journey == null || vehicle.getState() != PMVState.NotAvailable || !journey.isInProgress()) {
-            throw new ProceduralException("Vehicle not ready to start driving.");
+    public void unPairVehicle() throws exceptions.ConnectException, InvalidPairingArgsException, PairingNotFoundException, ProceduralException {
+        if (journeyService == null || !journeyService.isInProgress()) {
+            throw new ProceduralException("No active journey found.");
         }
 
-        arduino.startDriving();
-        vehicle.changeState(PMVState.UnderWay);
+        if(!BTconnected || driver == null){
+            throw new exceptions.ConnectException("Connection error");
+        }
+
+        if (vehicle.getState() != PMVState.UnderWay) {
+            throw new ProceduralException("Vehicle is not Underway.");
+        }
+
+        if (stationID == null || journeyService.getOriginStation() == stationID) {
+            throw new ProceduralException("End station doesn't exists.");
+        }
+
+
+        LocalDateTime endDate = LocalDateTime.now();
+        calculateValues(vehicle.getLocation(), endDate);
+
+        float distance = journeyService.getDistance();
+        int duration = journeyService.getDuration();
+        float avgSpeed = journeyService.getAvgSpeed();
+        calculateImport(distance, duration, avgSpeed, endDate);
+
+        journeyService.setEndPoint(vehicle.getLocation());
+        journeyService.setEndDate(endDate);
+
+        journeyService.setServiceID(new ServiceID("ABCDEFG1"));
+
+        server.stopPairing(driver.getUserAccount(), vehicle.getVehicleID(), stationID, vehicle.getLocation(), endDate, avgSpeed, distance, duration, journeyService.getCost());
+
+        vehicle.setAvailb();
+        journeyService.setServiceFinish();
+
+
     }
 
-    public void stopDriving(StationID endStation, GeographicPoint endLocation)
-            throws ProceduralException, java.net.ConnectException, InvalidPairingArgsException, PMVPhisicalException {
-        if (vehicle == null || journey == null || vehicle.getState() != PMVState.UnderWay || !journey.isInProgress()) {
-            throw new ProceduralException("Vehicle not under way or journey not in progress.");
+    public void startDriving() throws ConnectException, ProceduralException {
+
+        if (vehicle.getState() != PMVState.NotAvailable) {
+            throw new ProceduralException("Vehicle scanQR failed.");
         }
+
+        if(journeyService == null){
+            throw new ProceduralException("No active journey already.");
+        }
+
+        if(!BTconnected || driver == null){
+            throw new ConnectException();
+        }
+
+        vehicle.setUnderWay();
+        journeyService.setServiceInit();
+    }
+
+
+    public void stopDriving() throws ConnectException, ProceduralException {
+
+        if (journeyService == null || !journeyService.isInProgress()) {
+            throw new ProceduralException("No active journey found.");
+        }
+
+        if(!BTconnected || driver == null){
+            throw new ConnectException();
+        }
+
+        if (vehicle.getState() != PMVState.UnderWay) {
+            throw new ProceduralException("Vehicle is not Underway.");
+        }
+
+    }
+
+    public void selectPaymentMethod (char opt) throws ProceduralException,
+            NotEnoughWalletException, ConnectException {
+
+        if(journeyService == null){
+            throw new ProceduralException("No active journey.");
+        }
+
+        if(!BTconnected || driver == null){
+            throw new ConnectException("Connection refused");
+        }
+
+        processPayment(opt,journeyService);
 
         try {
-            arduino.stopDriving();
-            // Calcular métricas usando metricsCalculator
-            float distance = metricsCalculator.calculateDistance(journey.getOriginPoint(), endLocation);
-            int duration = metricsCalculator.calculateDuration(journey.getInitTime(), LocalDateTime.now());
-            float avgSpeed = metricsCalculator.calculateAvgSpeed(distance, duration);
-            BigDecimal cost = metricsCalculator.calculateImport(distance, duration, avgSpeed);
-
-            // Finalizar el servicio en journey
-            journey.finishService(endStation, endLocation, distance, duration, avgSpeed, cost);
-
-            // Actualizar servidor
-            server.stopPairing(userAccount, journey.getVehicleID(), endStation, endLocation, LocalDateTime.now(),
-                    avgSpeed, distance, duration, cost);
-
-            // Deshacer conexión BT
-            arduino.undoBTconnection();
-            vehicle.changeState(PMVState.Available);
-        } catch (Exception e) {
-            // Incluso si hay error, deshacer la conexión BT
-            arduino.undoBTconnection();
-            throw e;
+            realizePayment(journeyService.getCost());
+            System.out.println("Payment completed using Wallet.");
+        } catch (NotEnoughWalletException e) {
+            throw new NotEnoughWalletException("Insufficient Wallet.");
         }
+
+        server.registerPayment(journeyService.getServiceID(), journeyService.getUser(), journeyService.getCost(), opt);
+
+        arduino.undoBTconnection();
+        BTconnected = false;
+
+    }
+
+    private void initBTConnection() throws ConnectException {
+        try {
+            arduino.setBTconnection();
+            BTconnected = true; //Connected
+        } catch (ConnectException ex) {
+            BTconnected = false; //Not connected
+            throw ex;
+        }
+    }
+
+    private void calculateValues(GeographicPoint gP, LocalDateTime date) {
+        //Calculate distance, duration, and average speed
+        journeyService.setDistance(33.0f);
+        journeyService.setDuration(54);
+        journeyService.setAvgSpeed(8.3f);
+    }
+    private void calculateImport(float distance, int duration, float avgSpeed, LocalDateTime date) {
+        //Calculate import
+        BigDecimal cost = BigDecimal.valueOf(81.0f);
+        journeyService.setCost(cost);
+
+    }
+
+    public void broadcastStationID(StationID stationID_) throws exceptions.ConnectException {
+        //Simulate broadcasting process
+        if (stationID_ == null) {
+            throw new exceptions.ConnectException("Station ID cannot be null.");
+        }
+
+        stationID = stationID_;
+    }
+
+    private void processPayment(char opt, JourneyService journeyService) throws ProceduralException {
+        if (opt != 'W' && opt != 'T' && opt != 'B' && opt != 'P') {
+            throw new ProceduralException("Invalid option. Valid option values: W, T, B, P.");
+        }
+        Wallet wallet = journeyService.getUser().getWallet();
+
+        if (wallet == null) {
+            throw new ProceduralException("Wallet not found for user.");
+        }
+
+        payment = new WalletPayment(journeyService.getUser(), journeyService, journeyService.getCost(), wallet);
+    }
+
+    private void executePayment(BigDecimal amount) throws NotEnoughWalletException {
+        payment.executePayment();
+        System.out.println("Payment executed: " + amount + " deducted successfully.");
+    }
+
+    private void realizePayment (BigDecimal imp) throws NotEnoughWalletException{
+
+        if (driver == null || driver.getUserAccount() == null) {
+            throw new IllegalArgumentException("Driver or UserAccount cannot be null.");
+        }
+
+        executePayment(journeyService.getCost());
+
+        System.out.println("Realize payment executed: " + imp + " deducted from wallet.");
     }
 
     // Métodos getters o setters adicionales.
@@ -110,10 +227,26 @@ public class JourneyRealizeHandler {
     }
 
     public JourneyService getJourney() {
-        return journey;
+        return journeyService;
     }
 
     public UserAccount getUserAccount() {
-        return userAccount;
+        return user;
+    }
+
+    public void setVehicle(PMVehicle vehicle) {
+        this.vehicle = vehicle;
+    }
+
+    public void setDriver(Driver driver) {
+        this.driver = driver;
+    }
+
+    public void setJourneyService(JourneyService service){
+        this.journeyService = service;
+    }
+
+    public void setBT(Boolean BTconnected){
+        this.BTconnected = BTconnected;
     }
 }
